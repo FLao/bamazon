@@ -11,16 +11,23 @@ var connection = mysql.createConnection({
   database: "Bamazon"
 });
 
-connection.connect(function(err) {
-    if (err) throw err;
+connection.connect(function(error) {
+    if (error) throw error;
     //    console.log("connected as id " + connection.threadId);
 });
 
-var start = function() {
-   
-    connection.query("SELECT * FROM products", function(err, res) {
-        if (err) throw err;
-            console.log(res);
+function start() {
+    connection.query("SELECT * FROM products", function(error, response) {
+        if (error) throw error;
+    
+        for(var i = 0; i < response.length; i++) {
+            console.log("ID: " + response[i].item_id + "|" + 
+                        "Product: " + response[i].product_name + "|" + 
+                        "Department: " + response[i].department_name + "|" + 
+                        "Price: " + response[i].price + "|" + 
+                        "Quantity: " + response[i].stock_quantity +
+                        "\n===================================================================================");
+        }
 
         inquirer.prompt([
         {
@@ -35,48 +42,75 @@ var start = function() {
         }
         ]).then(function(answer) {
 
-            for(var i = 0; i < res.length; i++) {
-                if(res[i].item_id === parseInt(answer.id))
-                    checkInStock(parseInt(answer.id), answer.units);
+            for(var i = 0; i < response.length; i++) {
+                if(response[i].item_id === parseInt(answer.id))
+                    getStock(parseInt(answer.id), answer.units);
             }
         });
     });
 }
+
+// Initial call to begin the program
 start();
 
-function checkInStock(itemID, units) {
+function getStock(itemID, units) {
     connection.query("SELECT * FROM products WHERE ?", { 
         item_id: itemID
-    }, function(err, res) {
-        if (err) throw err;
+    }, function(error, response) {
+        if (error) throw error;
         
-        if(res[0].stock_quantity === 0) {
+        if(response[0].stock_quantity === 0) {
             console.log("Insufficient quantity!");
-            start();
+            restart();
         }
         
-        else {  
-            var newQuantity = res[0].stock_quantity - units;
-                
-            connection.query("UPDATE products SET ? WHERE ?", [{
-            stock_quantity: newQuantity
-            }, {
-                item_id: itemID
-            }], function(err, res) {});
-
-            getPurchasePrice(itemID, units);
-            start();            
-        }
+        else 
+            getCost(itemID, units);
     });
 }
 
-function getPurchasePrice(itemID, units) {
+function getCost(itemID, units) {
     connection.query("SELECT * FROM products WHERE ?", { 
         item_id: itemID
-    }, function(err, res) {
-        if (err) throw err;
+    }, function(error, response) {
+        if (error) throw error;
 
-        var totalCost = res[0].price * units;
-        console.log("Total cost: " + totalCost);
+        var totalCost = response[0].price * units;
+        console.log("Total cost since you bought " + units  +  " " + "each at $" + response[0].price + 
+                    " " + "is $" + totalCost);
+        
+        setQuantity(itemID, units);
     });
 }    
+
+function setQuantity(itemID, units) {
+    connection.query("SELECT * FROM products WHERE ?", { 
+        item_id: itemID
+    }, function(error, response) {
+        if (error) throw error;
+
+    var newQuantity = response[0].stock_quantity - units;
+                
+    connection.query("UPDATE products SET ? WHERE ?", [{
+    stock_quantity: newQuantity
+    }, {
+        item_id: itemID
+    }], function(error, response) {});
+
+        restart();
+    });
+}
+
+function restart() {
+    inquirer.prompt([
+        {
+            type: "confirm",
+            message: "Do you want to purchase another item?",
+            name: "confirm",
+            default: true
+        }
+    ]).then(function(answer) {
+        if(answer.confirm)
+            start();
+    });
+}
