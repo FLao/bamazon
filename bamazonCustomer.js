@@ -50,22 +50,19 @@ function start() {
     });
 }
 
-// Initial call to begin the program
-start();
-
 function getStock(itemID, units) {
     connection.query("SELECT * FROM products WHERE ?", { 
         item_id: itemID
     }, function(error, response) {
         if (error) throw error;
         
-        if(response[0].stock_quantity === 0) {
+        if(response[0].stock_quantity <= 0) {
             console.log("Insufficient quantity!");
             restart();
         }
         
         else 
-            getCost(itemID, units);
+            setQuantity(itemID, units);
     });
 }
 
@@ -79,7 +76,7 @@ function getCost(itemID, units) {
         console.log("Total cost since you bought " + units  +  " " + "each at $" + response[0].price + 
                     " " + "is $" + totalCost);
         
-        setQuantity(itemID, units);
+        restart();
     });
 }    
 
@@ -90,6 +87,9 @@ function setQuantity(itemID, units) {
         if (error) throw error;
 
     var newQuantity = response[0].stock_quantity - units;
+
+    if(newQuantity < 0)
+        newQuantity = 0;
                 
     connection.query("UPDATE products SET ? WHERE ?", [{
     stock_quantity: newQuantity
@@ -97,7 +97,7 @@ function setQuantity(itemID, units) {
         item_id: itemID
     }], function(error, response) {});
 
-        restart();
+        getCost(itemID, units);
     });
 }
 
@@ -114,3 +114,6 @@ function restart() {
             start();
     });
 }
+
+// Initial call to begin the program
+start();
